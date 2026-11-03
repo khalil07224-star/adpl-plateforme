@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ADPL — Gestion des cotisations</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--green:#176b45;--deep:#104b32;--gold:#d6ad45;--bg:#f4f7f4;--ink:#1c2b22}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px system-ui,-apple-system,Segoe UI,sans-serif}
+header{background:linear-gradient(120deg,var(--deep),var(--green));color:white;padding:22px 16px}
+.wrap{max-width:1100px;margin:auto;padding:0 14px}header h1{margin:0;font-size:clamp(22px,4vw,32px)}header p{margin:6px 0 0;opacity:.9}
+main{max-width:1100px;margin:20px auto;padding:0 14px}.card{background:white;border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:0 3px 14px #163b2510}
+h2{font-size:19px;margin:0 0 14px;color:var(--deep)}label{display:block;font-weight:600;font-size:13px;margin:10px 0 5px}
+input,select,button{font:inherit;padding:11px;border-radius:9px;border:1px solid #ccd8ce;width:100%}
+button{background:var(--green);color:white;border:0;font-weight:700;cursor:pointer;margin-top:10px}button.secondary{background:#e8f0ea;color:var(--deep)}button.danger{background:#9d3434}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.row>*{flex:1}
+.muted{color:#66756b;font-size:13px}.hidden{display:none!important}.status{padding:10px;border-radius:8px;background:#eef5ef;margin:10px 0;white-space:pre-wrap}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:10px;border-bottom:1px solid #e5ece6;white-space:nowrap}th{background:#f0f5f1;color:var(--deep)}
+.tablewrap{overflow:auto} .badge{padding:4px 8px;border-radius:20px;background:#fff3d1;color:#795b12;font-weight:700}.badge.valide{background:#e1f4e8;color:#176b45}.badge.refuse{background:#fbe5e5;color:#9d3434}
+.stat{font-size:25px;font-weight:800;color:var(--green)}footer{text-align:center;color:#718075;padding:25px;font-size:12px}
+@media(max-width:600px){.card{padding:14px}header{padding:18px 14px}}
+</style></head>
+<body>
+<header><div class="wrap"><h1>ADPL</h1><p>Association pour le Développement de Pellél-Leyssaré · Registre des membres et cotisations</p></div></header>
+<main>
+<section class="card" id="setupCard">
+<h2>Connexion à la base ADPL</h2>
+<p class="muted">Renseignez une seule fois l’URL du projet Supabase et sa clé publique (anon/publishable). Ces informations se trouvent dans Supabase → Project Settings → API.</p>
+<div class="grid"><div><label>URL du projet Supabase</label><input id="supUrl" placeholder="https://xxxx.supabase.co"></div><div><label>Clé publique (anon / publishable)</label><input id="supKey" placeholder="sb_publishable_… ou clé anon"></div></div>
+<button id="saveConfig">Enregistrer la configuration</button><div class="muted">Ne collez jamais la clé service_role ici. Elle doit rester secrète.</div>
+</section>
+
+<section class="card" id="authCard">
+<h2>Accès administrateur</h2>
+<div class="grid"><div><label>Adresse e-mail</label><input id="email" type="email" autocomplete="username" placeholder="administrateur@exemple.com"></div><div><label>Mot de passe</label><input id="password" type="password" autocomplete="current-password" placeholder="Mot de passe"></div></div>
+<div class="row"><button id="loginBtn">Se connecter</button><button class="secondary" id="logoutBtn">Se déconnecter</button></div>
+<div id="authStatus" class="status">La consultation publique est disponible sans connexion.</div>
+</section>
+
+<section class="card">
+<div class="row"><div><h2>Registre des cotisations</h2><p class="muted">Consultation publique · Les données affichées proviennent de la base ADPL.</p></div><div><label>Année</label><select id="year"></select></div></div>
+<div class="grid"><div><div class="muted">Membres enregistrés</div><div class="stat" id="memberCount">—</div></div><div><div class="muted">Cotisations validées</div><div class="stat" id="paidCount">—</div></div><div><div class="muted">Montant validé</div><div class="stat" id="paidAmount">—</div></div></div>
+<div class="row"><button class="secondary" id="refreshBtn">Actualiser les données</button><button class="secondary" id="csvBtn">Exporter le registre CSV</button></div>
+<div class="tablewrap"><table><thead><tr><th>N°</th><th>Membre</th><th>Inscription</th><th>Mois</th><th>Montant</th><th>Statut</th></tr></thead><tbody id="registerBody"><tr><td colspan="6">Configurez Supabase pour charger le registre.</td></tr></tbody></table></div>
+</section>
+
+<section class="card hidden" id="adminPanel">
+<h2>Espace de gestion — administrateurs</h2><p class="muted">Les actions ci-dessous sont réservées aux comptes enregistrés dans admin_accounts.</p>
+<div class="grid">
+<div><h3>Ajouter un membre</h3><label>Nom</label><input id="lastName"><label>Prénom</label><input id="firstName"><label>Numéro de membre</label><input id="memberNo" placeholder="ADPL-001"><button id="addMember">Ajouter le membre</button></div>
+<div><h3>Enregistrer une cotisation</h3><label>Membre</label><select id="memberSelect"></select><label>Année</label><select id="payYear"></select><label>Mois</label><select id="payMonth"></select><label>Montant (FCFA)</label><input id="amount" type="number" value="1000" min="0"><label>Référence de paiement (facultatif)</label><input id="reference" placeholder="Référence Orange Money / Wave"><label>Statut</label><select id="payStatus"><option value="valide">Validé</option><option value="en_attente">En attente</option><option value="refuse">Refusé</option></select><button id="savePayment">Enregistrer la cotisation</button></div>
+</div><div id="adminStatus" class="status">Connectez-vous avec un compte administrateur.</div>
+</section>
+</main><footer>ADPL · Plateforme de gestion des membres et cotisations</footer>
+<script>
+const $=id=>document.getElementById(id);
+let db=null, isAdmin=false, members=[], contributions=[];
+const months=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+for(let y=2025;y<=2035;y++){ $('year').add(new Option(y,y)); $('payYear').add(new Option(y,y)); }
+$('year').value=new Date().getFullYear(); $('payYear').value=$('year').value;
+months.forEach((m,i)=>$('payMonth').add(new Option(m,i+1)));
+function setStatus(id,msg){$(id).textContent=msg}
+function initDb(){
+ const url=localStorage.getItem('adpl_supabase_url'), key=localStorage.getItem('adpl_supabase_key');
+ if(url&&key){$('supUrl').value=url;$('supKey').value=key;db=window.supabase.createClient(url,key);loadAll();}
+}
+$('saveConfig').onclick=()=>{const u=$('supUrl').value.trim(),k=$('supKey').value.trim();if(!u.startsWith('https://')||!k){alert('Vérifiez l’URL et la clé publique.');return;}localStorage.setItem('adpl_supabase_url',u);localStorage.setItem('adpl_supabase_key',k);db=window.supabase.createClient(u,k);loadAll();};
+$('loginBtn').onclick=async()=>{if(!db)return alert('Configurez d’abord Supabase.');const {data,error}=await db.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});if(error){setStatus('authStatus','Échec de connexion : '+error.message);return;}setStatus('authStatus','Connecté : '+data.user.email);await checkAdmin();await loadAll();};
+$('logoutBtn').onclick=async()=>{if(db)await db.auth.signOut();isAdmin=false;$('adminPanel').classList.add('hidden');setStatus('authStatus','Déconnecté. Consultation publique toujours disponible.');};
+async function checkAdmin(){if(!db)return;const {data,error}=await db.rpc('is_adpl_admin');isAdmin=!error&&data===true;$('adminPanel').classList.toggle('hidden',!isAdmin);setStatus('adminStatus',isAdmin?'Accès administrateur confirmé.':'Ce compte ne dispose pas des droits ADPL.');}
+async function loadAll(){
+ if(!db)return;
+ const {data:m,error:me}=await db.from('membres').select('*').order('numero_membre',{ascending:true});
+ if(me){setStatus('authStatus','Erreur membres : '+me.message);return;}members=m||[];
+ const {data:c,error:ce}=await db.from('cotisations').select('*').eq('annee',Number($('year').value));
+ if(ce){setStatus('authStatus','Erreur cotisations : '+ce.message);return;}contributions=c||[];
+ $('memberCount').textContent=members.length;
+ const paid=contributions.filter(x=>x.statut==='valide');$('paidCount').textContent=paid.length;$('paidAmount').textContent=paid.reduce((s,x)=>s+Number(x.montant||0),0).toLocaleString('fr-FR')+' FCFA';
+ $('memberSelect').innerHTML='';members.forEach(m=>$('memberSelect').add(new Option(`${m.numero_membre||''} — ${m.prenom||''} ${m.nom||''}`,m.id)));
+ renderRegister();
+}
+function renderRegister(){
+ const body=$('registerBody');body.innerHTML='';
+ if(!members.length){body.innerHTML='<tr><td colspan="6">Aucun membre enregistré.</td></tr>';return;}
+ const rows=[];
+ members.forEach(m=>{const own=contributions.filter(c=>c.membre_id===m.id);if(!own.length)rows.push({m,c:null});else own.forEach(c=>rows.push({m,c}));});
+ rows.forEach(({m,c})=>{const tr=document.createElement('tr');const status=c?.statut||'non payé';const badge=status==='valide'?'valide':status==='refuse'?'refuse':'';tr.innerHTML=`<td>${esc(m.numero_membre||'—')}</td><td>${esc((m.prenom||'')+' '+(m.nom||''))}</td><td>${esc(m.date_inscription||'—')}</td><td>${c?months[Number(c.mois)-1]:'—'}</td><td>${c?Number(c.montant).toLocaleString('fr-FR')+' FCFA':'—'}</td><td><span class="badge ${badge}">${esc(status)}</span></td>`;body.appendChild(tr);});
+}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+$('refreshBtn').onclick=loadAll;$('year').onchange=loadAll;
+$('addMember').onclick=async()=>{if(!isAdmin)return;const nom=$('lastName').value.trim(),prenom=$('firstName').value.trim(),numero_membre=$('memberNo').value.trim();if(!nom||!prenom||!numero_membre)return alert('Remplissez le nom, le prénom et le numéro.');const {error}=await db.from('membres').insert({nom,prenom,numero_membre,date_inscription:new Date().toISOString().slice(0,10),actif:true});setStatus('adminStatus',error?'Erreur : '+error.message:'Membre ajouté.');if(!error){$('lastName').value='';$('firstName').value='';$('memberNo').value='';await loadAll();}};
+$('savePayment').onclick=async()=>{if(!isAdmin)return;const payload={membre_id:$('memberSelect').value,annee:Number($('payYear').value),mois:Number($('payMonth').value),montant:Number($('amount').value),statut:$('payStatus').value,reference_paiement:$('reference').value.trim()||null,date_paiement:new Date().toISOString()};if(!payload.membre_id)return alert('Ajoutez d’abord un membre.');const {error}=await db.from('cotisations').upsert(payload,{onConflict:'membre_id,annee,mois'});setStatus('adminStatus',error?'Erreur : '+error.message:'Cotisation enregistrée.');if(!error){$('reference').value='';await loadAll();}};
+$('csvBtn').onclick=()=>{const lines=[['Numero','Prenom','Nom','Annee','Mois','Montant','Statut']];members.forEach(m=>{const cs=contributions.filter(c=>c.membre_id===m.id);if(!cs.length)lines.push([m.numero_membre,m.prenom,m.nom,$('year').value,'','','non payé']);else cs.forEach(c=>lines.push([m.numero_membre,m.prenom,m.nom,c.annee,c.mois,c.montant,c.statut]));});const csv=lines.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download='ADPL_registre_'+$('year').value+'.csv';a.click();};
+initDb();
+</script></body></html>
