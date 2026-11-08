@@ -20,23 +20,33 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 .tablewrap{overflow:auto} .badge{padding:4px 8px;border-radius:20px;background:#fff3d1;color:#795b12;font-weight:700}.badge.valide{background:#e1f4e8;color:#176b45}.badge.refuse{background:#fbe5e5;color:#9d3434}
 .stat{font-size:25px;font-weight:800;color:var(--green)}footer{text-align:center;color:#718075;padding:25px;font-size:12px}
 @media(max-width:600px){.card{padding:14px}header{padding:18px 14px}}
+.headerbar{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.menu-area{position:relative;flex:0 0 auto}
+.menu-toggle{width:48px;height:44px;margin:0;padding:0;background:#ffffff20;border:1px solid #ffffff70;border-radius:10px;font-size:25px;line-height:1}
+.menu-panel{position:absolute;right:0;top:52px;z-index:20;background:#fff;color:var(--ink);min-width:220px;border-radius:12px;padding:8px;box-shadow:0 8px 28px #0003}
+.menu-panel button{margin:0;text-align:left;background:white;color:var(--deep);padding:12px}
+.menu-panel button:hover{background:#edf4ef}
+.modal-backdrop{position:fixed;inset:0;background:#0008;z-index:50;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{width:min(100%,560px);max-height:90vh;overflow:auto;background:var(--bg);border-radius:16px;padding:16px}
+.modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.close-btn{width:auto;margin:0;background:#e8f0ea;color:var(--deep);padding:8px 12px}
+
 </style></head>
 <body>
-<header><div class="wrap"><h1>ADPL</h1><p>Association pour le Développement de Pellél-Leyssaré · Registre des membres et cotisations</p></div></header>
+<header><div class="wrap headerbar"><div><h1>ADPL</h1><p>Association pour le Développement de Pellél-Leyssaré · Registre des membres et cotisations</p></div>
+<div class="menu-area"><button class="menu-toggle" id="menuToggle" aria-label="Ouvrir le menu" aria-expanded="false">☰</button>
+<div class="menu-panel hidden" id="menuPanel"><button id="openAdmin">🔐 Espace administrateur</button></div></div></div></header>
 <main>
-<section class="card" id="setupCard">
-<h2>Connexion à la base ADPL</h2>
-<p class="muted">Renseignez une seule fois l’URL du projet Supabase et sa clé publique (anon/publishable). Ces informations se trouvent dans Supabase → Project Settings → API.</p>
-<div class="grid"><div><label>URL du projet Supabase</label><input id="supUrl" placeholder="https://xxxx.supabase.co"></div><div><label>Clé publique (anon / publishable)</label><input id="supKey" placeholder="sb_publishable_… ou clé anon"></div></div>
-<button id="saveConfig">Enregistrer la configuration</button><div class="muted">Ne collez jamais la clé service_role ici. Elle doit rester secrète.</div>
-</section>
+<div class="modal-backdrop hidden" id="adminModal"><div class="modal">
+
 
 <section class="card" id="authCard">
-<h2>Accès administrateur</h2>
+<div class="modal-head"><h2>Accès administrateur</h2><button class="close-btn" id="closeAdmin">Fermer</button></div>
 <div class="grid"><div><label>Adresse e-mail</label><input id="email" type="email" autocomplete="username" placeholder="administrateur@exemple.com"></div><div><label>Mot de passe</label><input id="password" type="password" autocomplete="current-password" placeholder="Mot de passe"></div></div>
 <div class="row"><button id="loginBtn">Se connecter</button><button class="secondary" id="logoutBtn">Se déconnecter</button></div>
 <div id="authStatus" class="status">La consultation publique est disponible sans connexion.</div>
 </section>
+</div></div>
 
 <section class="card">
 <div class="row"><div><h2>Registre des cotisations</h2><p class="muted">Consultation publique · Les données affichées proviennent de la base ADPL.</p></div><div><label>Année</label><select id="year"></select></div></div>
@@ -55,6 +65,8 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 </main><footer>ADPL · Plateforme de gestion des membres et cotisations</footer>
 <script>
 const $=id=>document.getElementById(id);
+const SUPABASE_URL = 'https://cklrdclokpufvfvbknnc.supabase.co';
+const SUPABASE_PUBLIC_KEY = 'sb_publishable_mvJxDazw6zDIVBEQjTEN9w_EXi782uR';
 let db=null, isAdmin=false, members=[], contributions=[];
 const months=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 for(let y=2025;y<=2035;y++){ $('year').add(new Option(y,y)); $('payYear').add(new Option(y,y)); }
@@ -62,10 +74,18 @@ $('year').value=new Date().getFullYear(); $('payYear').value=$('year').value;
 months.forEach((m,i)=>$('payMonth').add(new Option(m,i+1)));
 function setStatus(id,msg){$(id).textContent=msg}
 function initDb(){
- const url=localStorage.getItem('adpl_supabase_url'), key=localStorage.getItem('adpl_supabase_key');
- if(url&&key){$('supUrl').value=url;$('supKey').value=key;db=window.supabase.createClient(url,key);loadAll();}
+ try {
+   db=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLIC_KEY);
+   setStatus('authStatus','Base ADPL connectée. La consultation publique est disponible sans connexion.');
+   loadAll();
+ } catch(e) {
+   setStatus('authStatus','Impossible d’initialiser la connexion à Supabase : '+e.message);
+ }
 }
-$('saveConfig').onclick=()=>{const u=$('supUrl').value.trim(),k=$('supKey').value.trim();if(!u.startsWith('https://')||!k){alert('Vérifiez l’URL et la clé publique.');return;}localStorage.setItem('adpl_supabase_url',u);localStorage.setItem('adpl_supabase_key',k);db=window.supabase.createClient(u,k);loadAll();};
+$('menuToggle').onclick=()=>{const panel=$('menuPanel');panel.classList.toggle('hidden');$('menuToggle').setAttribute('aria-expanded',String(!panel.classList.contains('hidden')));};
+$('openAdmin').onclick=()=>{$('menuPanel').classList.add('hidden');$('adminModal').classList.remove('hidden');};
+$('closeAdmin').onclick=()=>{$('adminModal').classList.add('hidden');};
+$('adminModal').onclick=e=>{if(e.target===$('adminModal'))$('adminModal').classList.add('hidden');};
 $('loginBtn').onclick=async()=>{if(!db)return alert('Configurez d’abord Supabase.');const {data,error}=await db.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});if(error){setStatus('authStatus','Échec de connexion : '+error.message);return;}setStatus('authStatus','Connecté : '+data.user.email);await checkAdmin();await loadAll();};
 $('logoutBtn').onclick=async()=>{if(db)await db.auth.signOut();isAdmin=false;$('adminPanel').classList.add('hidden');setStatus('authStatus','Déconnecté. Consultation publique toujours disponible.');};
 async function checkAdmin(){if(!db)return;const {data,error}=await db.rpc('is_adpl_admin');isAdmin=!error&&data===true;$('adminPanel').classList.toggle('hidden',!isAdmin);setStatus('adminStatus',isAdmin?'Accès administrateur confirmé.':'Ce compte ne dispose pas des droits ADPL.');}
