@@ -1,51 +1,925 @@
 <!doctype html>
-<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ADPL — Registre des cotisations</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>
-:root{--green:#176b45;--deep:#104b32;--gold:#d6ad45;--bg:#f4f7f4;--ink:#1c2b22}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px system-ui,-apple-system,Segoe UI,sans-serif}header{background:linear-gradient(120deg,var(--deep),var(--green));color:#fff;padding:20px 14px}.wrap,main{max-width:1200px;margin:auto;padding:0 14px}.headerbar{display:flex;justify-content:space-between;align-items:center;gap:12px}h1{margin:0;font-size:clamp(23px,4vw,32px)}header p{margin:5px 0 0;opacity:.9;font-size:13px}.menu-area{position:relative}.menu-toggle{width:48px;height:44px;margin:0;padding:0;background:#ffffff20;border:1px solid #ffffff70;border-radius:10px;font-size:25px;color:white}.menu-panel{position:absolute;right:0;top:52px;z-index:20;background:white;min-width:220px;border-radius:12px;padding:8px;box-shadow:0 8px 28px #0003}.menu-panel button{background:white;color:var(--deep);text-align:left;margin:0}.hidden{display:none!important}main{margin:20px auto}.card{background:white;border-radius:14px;padding:17px;margin-bottom:16px;box-shadow:0 3px 14px #163b2510}h2{font-size:19px;color:var(--deep);margin:0 0 12px}label{display:block;font-weight:650;font-size:13px;margin:9px 0 5px}input,select,button{font:inherit;padding:11px;border-radius:9px;border:1px solid #ccd8ce;width:100%}button{background:var(--green);color:white;border:0;font-weight:700;cursor:pointer;margin-top:10px}button.secondary{background:#e8f0ea;color:var(--deep)}button.danger{background:#9d3434}.row{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.row>*{flex:1;min-width:160px}.muted{color:#66756b;font-size:13px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.stat{font-size:24px;font-weight:800;color:var(--green)}.status{padding:10px;border-radius:8px;background:#eef5ef;margin:10px 0;white-space:pre-wrap}.tablewrap{overflow:auto;border:1px solid #e5ece6;border-radius:9px}table{border-collapse:separate;border-spacing:0;width:100%;min-width:1050px;font-size:13px}th,td{text-align:center;padding:10px 9px;border-bottom:1px solid #e5ece6;white-space:nowrap}th{background:#edf4ef;color:var(--deep);position:sticky;top:0;z-index:1}th:nth-child(1),td:nth-child(1){position:sticky;left:0;background:#f8fbf8;z-index:2}th:nth-child(2),td:nth-child(2){position:sticky;left:75px;background:#f8fbf8;z-index:2;text-align:left;min-width:150px}th:nth-child(3),td:nth-child(3){position:sticky;left:225px;background:#f8fbf8;z-index:2;text-align:left;min-width:140px}th:nth-child(1),td:nth-child(1){min-width:75px}.month-total{font-weight:800;color:var(--deep);background:#fff9e9}.annual{background:#fff3d1;color:#75570d;font-weight:800}.modal-backdrop{position:fixed;inset:0;background:#0008;z-index:50;display:flex;align-items:center;justify-content:center;padding:14px}.modal{width:min(100%,560px);max-height:90vh;overflow:auto;background:var(--bg);border-radius:16px;padding:15px}.modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.close-btn{width:auto;margin:0;background:#e8f0ea;color:var(--deep)}footer{text-align:center;color:#718075;padding:24px;font-size:12px}@media(max-width:600px){.card{padding:13px}.row>*{min-width:130px}}
-</style></head><body>
-<header><div class="wrap headerbar"><div><h1>ADPL</h1><p>Association pour le Développement de Pellél-Leyssaré<br>Registre des membres et cotisations</p></div><div class="menu-area"><button class="menu-toggle" id="menuToggle" aria-label="Menu">☰</button><div class="menu-panel hidden" id="menuPanel"><button id="openAdmin">🔐 Espace administrateur</button></div></div></div></header>
-<main>
-<div class="modal-backdrop hidden" id="adminModal"><div class="modal"><div class="modal-head"><h2>Accès administrateur</h2><button class="close-btn" id="closeAdmin">Fermer</button></div><div class="grid"><div><label>Adresse e-mail</label><input id="email" type="email" autocomplete="username"></div><div><label>Mot de passe</label><input id="password" type="password" autocomplete="current-password"></div></div><div class="row"><button id="loginBtn">Se connecter</button><button class="secondary" id="logoutBtn">Se déconnecter</button></div><div id="authStatus" class="status">Consultation publique disponible sans connexion.</div></div></div>
-<section class="card"><h2>Consulter ma situation</h2><p class="muted">Saisissez votre identifiant ADPL pour retrouver votre fiche personnelle.</p><div class="row"><div><label for="lookupId">Identifiant personnel</label><input id="lookupId" placeholder="Ex. ADPL-0025" autocomplete="off"></div><div><button id="lookupBtn">Consulter ma situation</button></div></div><div id="lookupResult" class="status hidden" aria-live="polite"></div></section>
-<section class="card"><div class="row"><div><h2>Registre annuel des cotisations</h2><p class="muted">Choisissez une année pour afficher automatiquement les douze mois.</p></div><div><label for="year">Choisir l’année</label><select id="year"></select></div></div>
-<div class="grid"><div><div class="muted">Membres enregistrés</div><div class="stat" id="memberCount">—</div></div><div><div class="muted">Cotisations validées</div><div class="stat" id="paidCount">—</div></div><div><div class="muted">Total annuel encaissé</div><div class="stat" id="paidAmount">—</div></div></div>
-<div class="row"><div><label for="memberSearch">Rechercher un membre</label><input id="memberSearch" placeholder="Nom, prénom ou identifiant ADPL"></div><div><button class="secondary" id="refreshBtn">Actualiser</button></div><div><button class="secondary" id="csvBtn">Exporter en CSV</button></div></div><p class="muted">Les montants affichés correspondent aux cotisations validées. Une case vide signifie qu’aucun paiement validé n’est enregistré pour ce mois.</p>
-<div class="tablewrap"><table><thead id="registerHead"></thead><tbody id="registerBody"><tr><td>Chargement du registre…</td></tr></tbody><tfoot id="registerFoot"></tfoot></table></div></section>
-<section class="card hidden" id="adminPanel"><h2>Espace de gestion — administrateurs</h2><p class="muted">Ajout et modification réservés aux administrateurs ADPL.</p><div class="grid"><div><h3>Ajouter un membre</h3><label>Nom</label><input id="lastName"><label>Prénom</label><input id="firstName"><label>Nom du père</label><input id="fatherName"><label>Pays de résidence</label><select id="residenceCountry"><option value="">Choisir un pays</option></select><p class="muted">L’identifiant personnel est attribué automatiquement et reste permanent.</p><button id="addMember">Ajouter le membre</button></div><div><h3>Enregistrer / modifier une cotisation</h3><p class="muted">Après validation, un reçu imprimable s’ouvre automatiquement.</p><label>Membre</label><select id="memberSelect"></select><label>Année</label><select id="payYear"></select><label>Mois</label><select id="payMonth"></select><label>Montant (FCFA)</label><input id="amount" type="number" min="0" value="1000"><label>Référence (facultatif)</label><input id="reference" placeholder="Wave / Orange Money"><label>Statut</label><select id="payStatus"><option value="valide">Validé</option><option value="en_attente">En attente</option><option value="refuse">Refusé</option></select><button id="savePayment">Enregistrer la cotisation</button></div></div><div id="adminStatus" class="status">Connectez-vous avec un compte administrateur.</div></section>
-</main><footer>ADPL · Plateforme de gestion des membres et cotisations</footer>
-<script>
-const $=id=>document.getElementById(id), months=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-const SUPABASE_URL='https://cklrdclokpufvfvbknnc.supabase.co',SUPABASE_PUBLIC_KEY='sb_publishable_mvJxDazw6zDIVBEQjTEN9w_EXi782uR';let db=null,isAdmin=false,members=[],contributions=[];
-for(let y=2025;y<=2040;y++){ $('year').add(new Option(y,y));$('payYear').add(new Option(y,y)); }$('year').value=String(Math.min(2040,Math.max(2025,new Date().getFullYear())));$('payYear').value=$('year').value;months.forEach((m,i)=>$('payMonth').add(new Option(m,i+1)));
-const countryNames=new Intl.DisplayNames(['fr'],{type:'region'});const countryCodes='AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW'.split(' ');countryCodes.sort((a,b)=>countryNames.of(a).localeCompare(countryNames.of(b),'fr'));countryCodes.forEach(code=>{const flag=String.fromCodePoint(...[...code].map(c=>127397+c.charCodeAt(0)));$('residenceCountry').add(new Option(flag+' '+countryNames.of(code),code));});const countryLabel=code=>{if(!code)return '—';const flag=String.fromCodePoint(...[...code].map(c=>127397+c.charCodeAt(0)));return flag+' '+(countryNames.of(code)||code)};
-const money=n=>Number(n||0).toLocaleString('fr-FR')+' FCFA';const memberCode=m=>String(m.numero_membre||'').trim()||'—';function msg(id,s){$(id).textContent=s}function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-$('menuToggle').onclick=()=>{$('menuPanel').classList.toggle('hidden')};$('openAdmin').onclick=()=>{$('menuPanel').classList.add('hidden');$('adminModal').classList.remove('hidden')};$('closeAdmin').onclick=()=>{$('adminModal').classList.add('hidden')};$('adminModal').onclick=e=>{if(e.target===$('adminModal'))$('adminModal').classList.add('hidden')};
-async function init(){try{db=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLIC_KEY);msg('authStatus','Connexion à la base ADPL établie. Consultation publique disponible.');await loadAll();const {data}=await db.auth.getSession();if(data.session){await checkAdmin()}}catch(e){msg('authStatus','Erreur de connexion : '+e.message)}}
-$('loginBtn').onclick=async()=>{const {data,error}=await db.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});if(error){msg('authStatus','Échec de connexion : '+error.message);return}msg('authStatus','Connecté : '+data.user.email);await checkAdmin();await loadAll()};$('logoutBtn').onclick=async()=>{await db.auth.signOut();isAdmin=false;$('adminPanel').classList.add('hidden');msg('authStatus','Déconnecté. Consultation publique toujours disponible.');await loadAll()};
-async function checkAdmin(){const {data,error}=await db.rpc('is_adpl_admin');isAdmin=!error&&data===true;$('adminPanel').classList.toggle('hidden',!isAdmin);msg('adminStatus',isAdmin?'Accès administrateur confirmé.':'Ce compte ne dispose pas des droits ADPL.');}
-async function loadAll(){if(!db)return;const year=Number($('year').value);const [mr,cr]=await Promise.all([db.from('membres').select('*').order('numero_membre',{ascending:true}),db.from('cotisations').select('*').eq('annee',year)]);if(mr.error){msg('authStatus','Erreur membres : '+mr.error.message);return}if(cr.error){msg('authStatus','Erreur cotisations : '+cr.error.message);return}members=(mr.data||[]).sort((a,b)=>String(a.nom||'').localeCompare(String(b.nom||''),'fr',{sensitivity:'base'})||String(a.prenom||'').localeCompare(String(b.prenom||''),'fr',{sensitivity:'base'}));contributions=cr.data||[];$('memberCount').textContent=members.length;const valid=contributions.filter(c=>c.statut==='valide');$('paidCount').textContent=valid.length;$('paidAmount').textContent=money(valid.reduce((s,c)=>s+Number(c.montant||0),0));$('memberSelect').innerHTML='';members.forEach(m=>$('memberSelect').add(new Option(`${memberCode(m)} — ${m.nom||''} ${m.prenom||''}`,m.id)));renderTable()}
-function renderTable(){const term=($('memberSearch')?.value||'').trim().toLocaleLowerCase('fr');const shown=members.filter(m=>[memberCode(m),m.nom,m.prenom,m.nom_pere,m.pays_residence].join(' ').toLocaleLowerCase('fr').includes(term));let head='<tr><th>Identifiant</th><th>Nom</th><th>Prénom</th><th>Filiation</th><th>Pays de résidence</th>'+months.map(m=>`<th>${m}</th>`).join('')+'<th>Total annuel</th>'+(isAdmin?'<th>Action</th>':'')+'</tr>'; $('registerHead').innerHTML=head;let totals=Array(12).fill(0),grand=0;const body=shown.map(m=>{const own=contributions.filter(c=>String(c.membre_id)===String(m.id)&&c.statut==='valide');let cells=months.map((_,i)=>{const c=own.find(x=>Number(x.mois)===i+1);const v=c?Number(c.montant||0):0;totals[i]+=v;return `<td>${v?money(v):''}</td>`}).join('');const total=own.reduce((s,c)=>s+Number(c.montant||0),0);grand+=total;return `<tr><td>${esc(memberCode(m))}</td><td>${esc(m.nom||'')}</td><td>${esc(m.prenom||'')}</td><td>Fils de ${esc(m.nom_pere||'—')}</td><td>${esc(countryLabel(m.pays_residence))}</td>${cells}<td class="annual">${total?money(total):''}</td>${isAdmin?`<td><button class="secondary editMember" data-id="${esc(m.id)}" style="margin:0 4px 0 0;width:auto">Modifier</button><button class="danger deleteMember" data-id="${esc(m.id)}" style="margin:0;width:auto">Supprimer</button></td>`:''}</tr>`}).join('');$('registerBody').innerHTML=body||`<tr><td colspan="${isAdmin?18:17}">Aucun membre enregistré.</td></tr>`;$('registerFoot').innerHTML=`<tr><th colspan="3">Total par mois</th>${totals.map(v=>`<td class="month-total">${v?money(v):'—'}</td>`).join('')}<td class="annual">${money(grand)}</td>${isAdmin?'<td></td>':''}</tr>`;document.querySelectorAll('.editMember').forEach(b=>b.onclick=()=>editMember(b.dataset.id));document.querySelectorAll('.deleteMember').forEach(b=>b.onclick=()=>deleteMember(b.dataset.id))}
-async function deleteMember(id){
- if(!isAdmin){alert('Accès réservé aux administrateurs.');return;}
- const m=members.find(x=>String(x.id)===String(id));
- if(!m)return;
- const label=`${m.prenom||''} ${m.nom||''} (${memberCode(m)})`.trim();
- if(!confirm(`Confirmer la suppression de ${label} ?\n\nCette opération supprimera aussi toutes les cotisations de ce membre, pour toutes les années. Elle est irréversible.`))return;
- // Suppression des cotisations d'abord pour respecter la clé étrangère.
- const {error:paymentError}=await db.from('cotisations').delete().eq('membre_id',id);
- if(paymentError){msg('adminStatus','Suppression interrompue : '+paymentError.message);return;}
- const {error:memberError}=await db.from('membres').delete().eq('id',id);
- if(memberError){msg('adminStatus','Les cotisations ont été supprimées, mais la fiche membre n’a pas pu être supprimée : '+memberError.message);return;}
- msg('adminStatus',`Membre ${memberCode(m)} supprimé avec ses cotisations.`);
- $('lookupResult').classList.add('hidden');
- await loadAll();
-}
-async function editMember(id){const m=members.find(x=>String(x.id)===String(id));if(!m)return;const paysInitial=m.pays_residence||'SN';const prenom=prompt('Modifier le prénom :',m.prenom||'');if(prenom===null)return;const nom=prompt('Modifier le nom :',m.nom||'');if(nom===null)return;const nom_pere=prompt('Nom du père :',m.nom_pere||'');if(nom_pere===null)return;const pays_residence=prompt('Pays de résidence (code ISO, ex. SN, GN, FR) :',paysInitial);if(pays_residence===null)return;if(!prenom.trim()||!nom.trim()||!nom_pere.trim()||!pays_residence.trim()){alert('Le nom et le prénom sont obligatoires.');return}const {error}=await db.from('membres').update({prenom:prenom.trim(),nom:nom.trim(),nom_pere:nom_pere.trim(),pays_residence:pays_residence.trim().toUpperCase()}).eq('id',id);if(error){msg('adminStatus','Erreur : '+error.message);return}msg('adminStatus','Membre modifié avec succès.');await loadAll()}
-$('year').onchange=loadAll;$('refreshBtn').onclick=loadAll;$('memberSearch').addEventListener('input',renderTable);$('addMember').onclick=async()=>{if(!isAdmin)return;const nom=$('lastName').value.trim(),prenom=$('firstName').value.trim(),nom_pere=$('fatherName').value.trim(),pays_residence=$('residenceCountry').value;if(!nom||!prenom||!nom_pere||!pays_residence){alert('Remplissez le nom, le prénom, le nom du père et le pays de résidence.');return}const duplicate=members.some(m=>(m.nom||'').trim().toLocaleLowerCase('fr')===nom.toLocaleLowerCase('fr')&&(m.prenom||'').trim().toLocaleLowerCase('fr')===prenom.toLocaleLowerCase('fr')&&(m.nom_pere||'').trim().toLocaleLowerCase('fr')===nom_pere.toLocaleLowerCase('fr'));if(duplicate&&!confirm('Un membre avec le même nom, prénom et nom du père existe déjà. Ajouter quand même ?'))return;const nums=members.map(m=>{const x=String(m.numero_membre||'').match(/^ADPL-(\d+)$/i);return x?Number(x[1]):0});const numero_membre='ADPL-'+String(Math.max(0,...nums)+1).padStart(4,'0');const {error}=await db.from('membres').insert({nom,prenom,nom_pere,pays_residence,numero_membre,date_inscription:new Date().toISOString().slice(0,10),actif:true});msg('adminStatus',error?'Erreur : '+error.message:'Membre ajouté. Son identifiant permanent a été attribué automatiquement.');if(!error){$('lastName').value=$('firstName').value=$('fatherName').value=$('residenceCountry').value='';await loadAll()}};
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ADPL — Registre des cotisations</title>
 
-function printReceipt(m,p){if(!m)return;const w=window.open('','_blank');if(!w){alert('Autorisez les fenêtres pop-up pour imprimer le reçu.');return}const html=`<!doctype html><html lang="fr"><meta charset="utf-8"><title>Reçu ADPL</title><style>body{font:16px Arial;padding:30px;color:#183d2b}h1{color:#176b45} .box{border:1px solid #aaa;padding:20px;border-radius:10px}button{padding:10px 18px;background:#176b45;color:white;border:0;border-radius:6px}</style><h1>ADPL — Reçu de cotisation</h1><div class="box"><p><b>Membre :</b> ${esc(m.prenom)} ${esc(m.nom)}</p><p><b>Filiation :</b> Fils de ${esc(m.nom_pere||'—')}</p><p><b>Identifiant :</b> ${esc(memberCode(m))}</p><p><b>Période :</b> ${months[Number(p.mois)-1]} ${p.annee}</p><p><b>Montant :</b> ${money(p.montant)}</p><p><b>Statut :</b> ${esc(p.statut)}</p><p><b>Date :</b> ${new Date(p.date_paiement).toLocaleString('fr-FR')}</p></div><p>Merci pour votre contribution.</p><button onclick="window.print()">Imprimer / Enregistrer en PDF</button></html>`;w.document.write(html);w.document.close()}
-$('savePayment').onclick=async()=>{if(!isAdmin)return;const payload={membre_id:$('memberSelect').value,annee:Number($('payYear').value),mois:Number($('payMonth').value),montant:Number($('amount').value),statut:$('payStatus').value,reference_paiement:$('reference').value.trim()||null,date_paiement:new Date().toISOString()};if(!payload.membre_id||!payload.montant||payload.montant<0){alert('Choisissez un membre et saisissez un montant valide.');return}const {error}=await db.from('cotisations').upsert(payload,{onConflict:'membre_id,annee,mois'});msg('adminStatus',error?'Erreur : '+error.message:'Cotisation enregistrée.');if(!error){const m=members.find(x=>String(x.id)===String(payload.membre_id));printReceipt(m,payload);$('reference').value='';$('year').value=String(payload.annee);await loadAll()}};
-$('lookupBtn').onclick=()=>{const id=$('lookupId').value.trim().toUpperCase();const box=$('lookupResult');if(!id){box.classList.remove('hidden');box.textContent='Saisissez votre identifiant ADPL.';return}const m=members.find(x=>memberCode(x)===id);box.classList.remove('hidden');if(!m){box.textContent='Aucun membre trouvé avec cet identifiant. Vérifiez votre saisie.';return}const own=contributions.filter(c=>String(c.membre_id)===String(m.id)&&c.statut==='valide');const rows=months.map((mois,i)=>{const c=own.find(x=>Number(x.mois)===i+1);return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #dfe8e0"><span>${mois}</span><strong>${c?money(c.montant):'—'}</strong></div>`}).join('');const total=own.reduce((sum,c)=>sum+Number(c.montant||0),0);box.innerHTML=`<strong>${esc(m.prenom||'')} ${esc(m.nom||'')}</strong><br><span>Fils de ${esc(m.nom_pere||'—')}</span><br><span class="muted">Identifiant : ${esc(memberCode(m))} · Année ${esc($('year').value)}</span>${rows}<p><strong>Total annuel : ${money(total)}</strong></p>`};$('lookupId').addEventListener('keydown',e=>{if(e.key==='Enter')$('lookupBtn').click()});
-$('csvBtn').onclick=()=>{const rows=[['Identifiant','Nom','Prenom','Filiation','Pays de résidence','Annee',...months,'Total annuel']];members.forEach(m=>{const own=contributions.filter(c=>String(c.membre_id)===String(m.id)&&c.statut==='valide');const vals=months.map((_,i)=>{const c=own.find(x=>Number(x.mois)===i+1);return c?Number(c.montant||0):''});rows.push([memberCode(m),m.nom,m.prenom,'Fils de '+(m.nom_pere||''),countryLabel(m.pays_residence),$('year').value,...vals,vals.reduce((s,v)=>s+Number(v||0),0)])});const csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download='ADPL_registre_'+$('year').value+'.csv';a.click();};init();
-</script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+:root{
+--green:#176b45;
+--deep:#104b32;
+--gold:#d6ad45;
+--bg:#f4f7f4;
+--ink:#1c2b22
+}
+
+*{box-sizing:border-box}
+
+body{
+margin:0;
+background:var(--bg);
+color:var(--ink);
+font:15px system-ui,-apple-system,Segoe UI,sans-serif
+}
+
+header{
+background:linear-gradient(120deg,var(--deep),var(--green));
+color:#fff;
+padding:20px 14px
+}
+
+.wrap,main{
+max-width:1200px;
+margin:auto;
+padding:0 14px
+}
+
+.headerbar{
+display:flex;
+justify-content:space-between;
+align-items:center;
+gap:12px
+}
+
+h1{margin:0;font-size:clamp(23px,4vw,32px)}
+
+header p{
+margin:5px 0 0;
+opacity:.9;
+font-size:13px
+}
+
+.menu-area{position:relative}
+
+.menu-toggle{
+width:48px;
+height:44px;
+margin:0;
+padding:0;
+background:#ffffff20;
+border:1px solid #ffffff70;
+border-radius:10px;
+font-size:25px;
+color:white
+}
+
+.menu-panel{
+position:absolute;
+right:0;
+top:52px;
+z-index:20;
+background:white;
+min-width:220px;
+border-radius:12px;
+padding:8px;
+box-shadow:0 8px 28px #0003
+}
+
+.menu-panel button{
+background:white;
+color:var(--deep);
+text-align:left;
+margin:0
+}
+
+.hidden{display:none!important}
+
+main{margin:20px auto}
+
+.card{
+background:white;
+border-radius:14px;
+padding:17px;
+margin-bottom:16px;
+box-shadow:0 3px 14px #163b2510
+}
+
+h2{
+font-size:19px;
+color:var(--deep);
+margin:0 0 12px
+}
+
+label{
+display:block;
+font-weight:650;
+font-size:13px;
+margin:9px 0 5px
+}
+
+input,select,button{
+font:inherit;
+padding:11px;
+border-radius:9px;
+border:1px solid #ccd8ce;
+width:100%
+}
+
+button{
+background:var(--green);
+color:white;
+border:0;
+font-weight:700;
+cursor:pointer;
+margin-top:10px
+}
+
+button.secondary{
+background:#e8f0ea;
+color:var(--deep)
+}
+
+button.danger{background:#9d3434}
+
+.row{
+display:flex;
+gap:12px;
+align-items:end;
+flex-wrap:wrap
+}
+
+.row>*{flex:1;min-width:160px}
+
+.muted{color:#66756b;font-size:13px}
+
+.grid{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+gap:12px
+}
+
+.stat{
+font-size:24px;
+font-weight:800;
+color:var(--green)
+}
+
+.status{
+padding:10px;
+border-radius:8px;
+background:#eef5ef;
+margin:10px 0;
+white-space:pre-wrap
+}
+
+.tablewrap{
+overflow:auto;
+border:1px solid #e5ece6;
+border-radius:9px
+}
+
+table{
+border-collapse:separate;
+border-spacing:0;
+width:100%;
+min-width:1050px;
+font-size:13px
+}
+
+th,td{
+text-align:center;
+padding:10px 9px;
+border-bottom:1px solid #e5ece6;
+white-space:nowrap
+}
+
+th{
+background:#edf4ef;
+color:var(--deep);
+position:sticky;
+top:0;
+z-index:1
+}
+
+th:nth-child(1),td:nth-child(1){
+position:sticky;
+left:0;
+background:#f8fbf8;
+z-index:2
+}
+
+th:nth-child(2),td:nth-child(2){
+position:sticky;
+left:75px;
+background:#f8fbf8;
+z-index:2;
+text-align:left;
+min-width:150px
+}
+
+th:nth-child(3),td:nth-child(3){
+position:sticky;
+left:225px;
+background:#f8fbf8;
+z-index:2;
+text-align:left;
+min-width:140px
+}
+
+th:nth-child(1),td:nth-child(1){min-width:75px}
+
+.month-total{
+font-weight:800;
+color:var(--deep);
+background:#fff9e9
+}
+
+.annual{
+background:#fff3d1;
+color:#75570d;
+font-weight:800
+}
+
+.modal-backdrop{
+position:fixed;
+inset:0;
+background:#0008;
+z-index:50;
+display:flex;
+align-items:center;
+justify-content:center;
+padding:14px
+}
+
+.modal{
+width:min(100%,560px);
+max-height:90vh;
+overflow:auto;
+background:var(--bg);
+border-radius:16px;
+padding:15px
+}
+
+.modal-head{
+display:flex;
+align-items:center;
+justify-content:space-between;
+gap:10px
+}
+
+.close-btn{
+width:auto;
+margin:0;
+background:#e8f0ea;
+color:var(--deep)
+}
+
+footer{
+text-align:center;
+color:#718075;
+padding:24px;
+font-size:12px
+}
+
+@media(max-width:600px){
+.card{padding:13px}
+.row>*{min-width:130px}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<div class="wrap headerbar">
+<div>
+<h1>ADPL</h1>
+<p>
+Association pour le Développement de Pellél-Leyssaré<br>
+Registre des membres et cotisations
+</p>
+</div>
+
+<div class="menu-area">
+<button class="menu-toggle" id="menuToggle" aria-label="Menu">☰</button>
+
+<div class="menu-panel hidden" id="menuPanel">
+<button id="openAdmin">🔐 Espace administrateur</button>
+</div>
+</div>
+</div>
+</header>
+
+<main>
+
+<div class="modal-backdrop hidden" id="adminModal">
+<div class="modal">
+<div class="modal-head">
+<h2>Accès administrateur</h2>
+<button class="close-btn" id="closeAdmin">Fermer</button>
+</div>
+
+<div class="grid">
+<div>
+<label>Adresse e-mail</label>
+<input id="email" type="email" autocomplete="username">
+</div>
+
+<div>
+<label>Mot de passe</label>
+<input id="password" type="password" autocomplete="current-password">
+</div>
+</div>
+
+<div class="row">
+<button id="loginBtn">Se connecter</button>
+<button class="secondary" id="logoutBtn">Se déconnecter</button>
+</div>
+
+<div id="authStatus" class="status">
+Consultation publique disponible sans connexion.
+</div>
+</div>
+</div>
+
+<section class="card">
+<h2>Consulter ma situation</h2>
+<p class="muted">
+Saisissez votre identifiant ADPL pour retrouver votre fiche personnelle.
+</p>
+
+<div class="row">
+<div>
+<label for="lookupId">Identifiant personnel</label>
+<input id="lookupId" placeholder="Ex. ADPL-0025" autocomplete="off">
+</div>
+
+<div>
+<button id="lookupBtn">Consulter ma situation</button>
+</div>
+</div>
+
+<div id="lookupResult" class="status hidden" aria-live="polite"></div>
+</section>
+
+<section class="card">
+<div class="row">
+<div>
+<h2>Registre annuel des cotisations</h2>
+<p class="muted">
+Choisissez une année pour afficher automatiquement les douze mois.
+</p>
+</div>
+
+<div>
+<label for="year">Choisir l’année</label>
+<select id="year"></select>
+</div>
+</div>
+
+<div class="grid">
+<div>
+<div class="muted">Membres enregistrés</div>
+<div class="stat" id="memberCount">—</div>
+</div>
+
+<div>
+<div class="muted">Cotisations validées</div>
+<div class="stat" id="paidCount">—</div>
+</div>
+
+<div>
+<div class="muted">Total annuel encaissé</div>
+<div class="stat" id="paidAmount">—</div>
+</div>
+</div>
+
+<div class="row">
+<div>
+<label for="memberSearch">Rechercher un membre</label>
+<input id="memberSearch" placeholder="Nom, prénom ou identifiant ADPL">
+</div>
+
+<div>
+<button class="secondary" id="refreshBtn">Actualiser</button>
+</div>
+
+<div>
+<button class="secondary" id="csvBtn">Exporter en CSV</button>
+</div>
+</div>
+
+<p class="muted">
+Les montants affichés correspondent aux cotisations validées.
+Une case vide signifie qu’aucun paiement validé n’est enregistré pour ce mois.
+</p>
+
+<div class="tablewrap">
+<table>
+<thead id="registerHead"></thead>
+<tbody id="registerBody">
+<tr><td>Chargement du registre…</td></tr>
+</tbody>
+<tfoot id="registerFoot"></tfoot>
+</table>
+</div>
+</section>
+
+<section class="card hidden" id="adminPanel">
+<h2>Espace de gestion — administrateurs</h2>
+
+<p class="muted">
+Ajout et modification réservés aux administrateurs ADPL.
+</p>
+
+<div class="grid">
+
+<div>
+<h3>Ajouter un membre</h3>
+
+<label>Nom</label>
+<input id="lastName">
+
+<label>Prénom</label>
+<input id="firstName">
+
+<label>Nom du père</label>
+<input id="fatherName">
+
+<label>Pays de résidence</label>
+<select id="residenceCountry">
+<option value="">Choisir un pays</option>
+</select>
+
+<p class="muted">
+L’identifiant personnel est attribué automatiquement et reste permanent.
+</p>
+
+<button id="addMember">Ajouter le membre</button>
+</div>
+
+<div>
+<h3>Enregistrer / modifier une cotisation</h3>
+
+<p class="muted">
+Après validation, un reçu imprimable s’ouvre automatiquement.
+</p>
+
+<label>Membre</label>
+<select id="memberSelect"></select>
+
+<label>Année</label>
+<select id="payYear"></select>
+
+<label>Mois</label>
+<select id="payMonth"></select>
+
+<label>Montant (FCFA)</label>
+<input id="amount" type="number" min="0" value="1000">
+
+<label>Référence (facultatif)</label>
+<input id="reference" placeholder="Wave / Orange Money">
+
+<label>Statut</label>
+<select id="payStatus">
+<option value="valide">Validé</option>
+<option value="en_attente">En attente</option>
+<option value="refuse">Refusé</option>
+</select>
+
+<button id="savePayment">Enregistrer la cotisation</button>
+</div>
+
+</div>
+
+<div id="adminStatus" class="status">
+Connectez-vous avec un compte administrateur.
+</div>
+</section>
+
+</main>
+
+<footer>
+ADPL · Plateforme de gestion des membres et cotisations
+</footer>
+
+html <script> /* =========================================    1. CONFIGURATION SUPABASE ========================================= */  const SUPABASE_URL =   'https://cklrdclokpufvfvbknnc.supabase.co';  const SUPABASE_KEY =   'sb_publishable_mvJxDazw6zDIVBEQjTEN9w_EXi782uR';  const db = window.supabase.createClient(   SUPABASE_URL,   SUPABASE_KEY );  /* =========================================    2. VARIABLES PRINCIPALES ========================================= */  const MONTHS = [   'Janvier', 'Février', 'Mars', 'Avril',   'Mai', 'Juin', 'Juillet', 'Août',   'Septembre', 'Octobre', 'Novembre', 'Décembre' ];  const COUNTRIES = [   'Sénégal',   'Guinée',   'Mali',   'Mauritanie',   'Gambie',   'Guinée-Bissau',   'Côte d’Ivoire',   'France',   'Italie',   'Espagne',   'États-Unis',   'Autre' ];  let members = []; let payments = []; let isAdmin = false; let currentYear = new Date().getFullYear();  /* =========================================    3. OUTILS ========================================= */  const $ = id => document.getElementById(id);  function esc(value) {   return String(value ?? '').replace(/[&<>"']/g, char => ({     '&': '&amp;',     '<': '&lt;',     '>': '&gt;',     '"': '&quot;',     "'": '&#39;'   })[char]); }  function money(value) {   return Number(value || 0).toLocaleString('fr-FR') + ' FCFA'; }  function memberCode(member) {   return member.numero_membre ||     ('ADPL-' + String(member.id).padStart(4, '0')); }  function setStatus(id, message) {   const element = $(id);   if (element) element.textContent = message; }  /* =========================================    4. VÉRIFICATION DES DROITS ADMIN ========================================= */  async function verifyAdmin(session) {    // Par défaut, aucun utilisateur n'est administrateur.   isAdmin = false;    if (session && session.user) {      try {        // Vérification dans Supabase.       const { data, error } = await db.rpc('is_adpl_admin');        if (!error && data === true) {         isAdmin = true;       }      } catch (error) {        console.error(         'Erreur de vérification administrateur :',         error       );        isAdmin = false;     }   }    updateAdminInterface();    if (isAdmin) {      setStatus(       'authStatus',       'Connexion administrateur active.'     );    } else if (session && session.user) {      setStatus(       'authStatus',       'Compte connecté, mais accès administrateur non autorisé.'     );    } else {      setStatus(       'authStatus',       'Consultation publique disponible.'     );   } }  /* =========================================    5. INITIALISATION ========================================= */  function initializePlatform() {    // Années de 2025 à 2040.   for (let year = 2025; year <= 2040; year++) {     $('year').add(new Option(year, year));     $('payYear').add(new Option(year, year));   }    $('year').value = String(     Math.max(2025, Math.min(2040, currentYear))   );    $('payYear').value = $('year').value;    // Mois.   MONTHS.forEach((month, index) => {     $('payMonth').add(new Option(month, index + 1));   });    // Pays.   COUNTRIES.forEach(country => {     $('residenceCountry').add(       new Option(country, country)     );   });    // Menu administrateur.   $('menuToggle').onclick = () => {     $('menuPanel').classList.toggle('hidden');   };    $('openAdmin').onclick = () => {     $('adminModal').classList.remove('hidden');     $('menuPanel').classList.add('hidden');   };    $('closeAdmin').onclick = () => {     $('adminModal').classList.add('hidden');   };    // Authentification.   $('loginBtn').onclick = loginAdmin;   $('logoutBtn').onclick = logoutAdmin;    // Recherche et consultation.   $('lookupBtn').onclick = lookupMember;    $('lookupId').addEventListener('keydown', event => {     if (event.key === 'Enter') lookupMember();   });    $('memberSearch').addEventListener('input', renderTable);    // Gestion du registre.   $('year').onchange = async () => {     currentYear = Number($('year').value);     $('payYear').value = String(currentYear);     await loadAll();   };    $('refreshBtn').onclick = loadAll;   $('csvBtn').onclick = exportCSV;    // Gestion des membres et cotisations.   $('addMember').onclick = addMember;   $('savePayment').onclick = savePayment;    // Vérification de la session et des droits.   db.auth.onAuthStateChange((event, session) => {      // Le setTimeout évite les conflits avec les opérations     // internes de la session Supabase.     setTimeout(async () => {        await verifyAdmin(session);       await loadAll();      }, 0);   });    // Chargement initial des données.   loadAll(); }  /* =========================================    6. AUTHENTIFICATION ADMINISTRATEUR ========================================= */  async function loginAdmin() {    const email = $('email').value.trim();   const password = $('password').value;    if (!email || !password) {     setStatus(       'authStatus',       'Veuillez renseigner votre e-mail et votre mot de passe.'     );     return;   }    setStatus('authStatus', 'Connexion en cours…');    const { error } = await db.auth.signInWithPassword({     email,     password   });    if (error) {      setStatus(       'authStatus',       'Erreur de connexion : ' + error.message     );      return;   }    $('password').value = '';   $('adminModal').classList.add('hidden');    // La vérification des droits est effectuée   // par le listener onAuthStateChange. }  async function logoutAdmin() {    const { error } = await db.auth.signOut();    if (error) {      setStatus('authStatus', error.message);     return;   }    isAdmin = false;   updateAdminInterface();    setStatus(     'authStatus',     'Vous êtes déconnecté.'   );    await loadAll(); }  /* =========================================    7. AFFICHAGE DES DROITS ADMIN ========================================= */  function updateAdminInterface() {    $('adminPanel').classList.toggle(     'hidden',     !isAdmin   );    $('logoutBtn').classList.toggle(     'hidden',     !isAdmin   );    $('loginBtn').classList.toggle(     'hidden',     isAdmin   );    if (!isAdmin) {      $('adminStatus').textContent =       'Connectez-vous avec un compte administrateur.';   } }  /* =========================================    8. CHARGEMENT DES MEMBRES ========================================= */  async function loadAll() {    setStatus('adminStatus', 'Chargement des données…');    try {      const { data: memberData, error: memberError } =       await db         .from('membres')         .select('*')         .order('id', { ascending: true });      if (memberError) throw memberError;      const year = Number($('year').value);      const { data: paymentData, error: paymentError } =       await db         .from('cotisations')         .select('*')         .eq('annee', year);      if (paymentError) throw paymentError;      members = memberData || [];     payments = paymentData || [];      $('memberCount').textContent = members.length;      $('memberSelect').innerHTML =       '<option value="">Choisir un membre</option>' +       members.map(member => `         <option value="${esc(member.id)}">           ${esc(memberCode(member))} —           ${esc(member.prenom)} ${esc(member.nom)}         </option>       `).join('');      renderTable();     updateStatistics();      setStatus(       'adminStatus',       'Données actualisées avec succès.'     );    } catch (error) {      console.error(error);      setStatus(       'adminStatus',       'Erreur de chargement : ' + error.message     );   } }  /* =========================================    9. STATISTIQUES ========================================= */  function updateStatistics() {    const validated = payments.filter(     payment => payment.statut === 'valide'   );    const total = validated.reduce(     (sum, payment) =>       sum + Number(payment.montant || 0),     0   );    $('paidCount').textContent = validated.length;   $('paidAmount').textContent = money(total); }  /* =========================================    10. AJOUT D'UN MEMBRE ========================================= */  async function addMember() {    if (!isAdmin) {     alert('Accès réservé aux administrateurs.');     return;   }    const nom = $('lastName').value.trim();   const prenom = $('firstName').value.trim();   const nom_pere = $('fatherName').value.trim();   const pays_residence = $('residenceCountry').value;    if (!nom || !prenom) {     alert('Le nom et le prénom sont obligatoires.');     return;   }    try {      const { data: lastMembers, error: searchError } =       await db         .from('membres')         .select('numero_membre');      if (searchError) throw searchError;      let highest = 0;      (lastMembers || []).forEach(member => {        const match = String(         member.numero_membre || ''       ).match(/ADPL-(\d+)/);        if (match) {         highest = Math.max(highest, Number(match[1]));       }     });      const numero_membre =       'ADPL-' + String(highest + 1).padStart(4, '0');      const { error } = await db       .from('membres')       .insert([{         numero_membre,         nom,         prenom,         nom_pere,         pays_residence,         actif: true       }]);      if (error) throw error;      alert(       'Membre ajouté avec succès !\nIdentifiant : ' +       numero_membre     );      $('lastName').value = '';     $('firstName').value = '';     $('fatherName').value = '';     $('residenceCountry').value = '';      await loadAll();    } catch (error) {      alert('Erreur : ' + error.message);   } }  /* =========================================    11. ENREGISTRER UNE COTISATION ========================================= */  async function savePayment() {    if (!isAdmin) {     alert('Accès réservé aux administrateurs.');     return;   }    const membre_id = $('memberSelect').value;   const annee = Number($('payYear').value);   const mois = Number($('payMonth').value);   const montant = Number($('amount').value);   const reference_paiement = $('reference').value.trim();   const statut = $('payStatus').value;    if (!membre_id) {     alert('Veuillez choisir un membre.');     return;   }    if (!montant || montant <= 0) {     alert('Veuillez saisir un montant valide.');     return;   }    try {      const date_paiement =       statut === 'valide'         ? new Date().toISOString()         : null;      const { error } = await db       .from('cotisations')       .upsert([{         membre_id,         annee,         mois,         montant,         statut,         reference_paiement,         date_paiement       }], {         onConflict: 'membre_id,annee,mois'       });      if (error) throw error;      const selectedMember = members.find(       member => String(member.id) === String(membre_id)     );      setStatus(       'adminStatus',       'Cotisation enregistrée pour ' +       (selectedMember         ? selectedMember.prenom + ' ' + selectedMember.nom         : 'le membre sélectionné')     );      $('reference').value = '';      await loadAll();    } catch (error) {      alert(       'Erreur lors de l’enregistrement : ' +       error.message     );   } } </script> 
+
+<script>
+/* =========================================
+   11. VÉRIFICATION DES DROITS ADMIN
+========================================= */
+
+async function verifyAdmin(session) {
+  isAdmin = false;
+
+  if (session?.user?.id) {
+    const { data, error } = await db
+      .from('admin_accounts')
+      .select('user_id')
+      .eq('user_id', session.user.id)
+      .maybeSingle();
+
+    isAdmin = !error && !!data;
+  }
+
+  updateAdminInterface();
+}
+
+/*
+IMPORTANT :
+Dans la PARTIE 2, remplace le bloc
+db.auth.onAuthStateChange(...) par celui-ci.
+*/
+
+db.auth.onAuthStateChange(async (event, session) => {
+  await verifyAdmin(session);
+
+  $('authStatus').textContent = isAdmin
+    ? 'Connexion administrateur active.'
+    : 'Consultation publique disponible.';
+
+  await loadAll();
+});
+
+
+/* =========================================
+   12. AFFICHAGE DU REGISTRE
+========================================= */
+
+function renderTable() {
+
+  const head = $('registerHead');
+  const body = $('registerBody');
+  const foot = $('registerFoot');
+
+  const months = MONTHS;
+
+  head.innerHTML = `
+    <tr>
+      <th>N° ADPL</th>
+      <th>Nom</th>
+      <th>Prénom</th>
+      ${months.map(month => `<th>${month}</th>`).join('')}
+      <th>Total annuel</th>
+      ${isAdmin ? '<th>Actions</th>' : ''}
+    </tr>
+  `;
+
+  const search = $('memberSearch').value
+    .trim()
+    .toLowerCase();
+
+  const filtered = members.filter(member => {
+
+    const text = [
+      member.numero_membre,
+      member.nom,
+      member.prenom,
+      member.nom_pere
+    ].join(' ').toLowerCase();
+
+    return text.includes(search);
+  });
+
+  let monthlyTotals = Array(12).fill(0);
+  let annualTotal = 0;
+
+  body.innerHTML = filtered.map(member => {
+
+    let memberTotal = 0;
+
+    const cells = months.map((month, index) => {
+
+      const payment = payments.find(p =>
+        String(p.membre_id) === String(member.id) &&
+        Number(p.mois) === index + 1 &&
+        p.statut === 'valide'
+      );
+
+      const amount = payment
+        ? Number(payment.montant || 0)
+        : 0;
+
+      memberTotal += amount;
+      monthlyTotals[index] += amount;
+
+      return `<td>${amount ? money(amount) : '—'}</td>`;
+    });
+
+    annualTotal += memberTotal;
+
+    return `
+      <tr>
+        <td>${esc(memberCode(member))}</td>
+        <td>${esc(member.nom)}</td>
+        <td>${esc(member.prenom)}</td>
+        ${cells.join('')}
+        <td class="annual">${money(memberTotal)}</td>
+
+        ${isAdmin ? `
+          <td>
+            <button
+              class="secondary"
+              onclick="editMember('${esc(member.id)}')">
+              Modifier
+            </button>
+
+            <button
+              class="danger"
+              onclick="deleteMember('${esc(member.id)}')">
+              Supprimer
+            </button>
+          </td>
+        ` : ''}
+      </tr>
+    `;
+  }).join('');
+
+  if (!filtered.length) {
+    body.innerHTML = `
+      <tr>
+        <td colspan="17">Aucun membre trouvé.</td>
+      </tr>
+    `;
+  }
+
+  foot.innerHTML = `
+    <tr>
+      <th colspan="3">TOTAL PAR MOIS</th>
+      ${monthlyTotals.map(total =>
+        `<td class="month-total">${money(total)}</td>`
+      ).join('')}
+      <td class="annual">${money(annualTotal)}</td>
+      ${isAdmin ? '<td></td>' : ''}
+    </tr>
+  `;
+
+}
+
+
+/* =========================================
+   13. MODIFIER UN MEMBRE
+========================================= */
+
+async function editMember(id) {
+
+  if (!isAdmin) {
+    alert('Accès réservé aux administrateurs.');
+    return;
+  }
+
+  const member = members.find(
+    m => String(m.id) === String(id)
+  );
+
+  if (!member) return;
+
+  const nom = prompt('Nom :', member.nom || '');
+  if (nom === null) return;
+
+  const prenom = prompt(
+    'Prénom :',
+    member.prenom || ''
+  );
+  if (prenom === null) return;
+
+  const nom_pere = prompt(
+    'Nom du père :',
+    member.nom_pere || ''
+  );
+  if (nom_pere === null) return;
+
+  const pays_residence = prompt(
+    'Pays de résidence :',
+    member.pays_residence || ''
+  );
+
+  if (pays_residence === null) return;
+
+  if (!nom.trim() || !prenom.trim()) {
+    alert('Le nom et le prénom sont obligatoires.');
+    return;
+  }
+
+  const { error } = await db
+    .from('membres')
+    .update({
+      nom: nom.trim(),
+      prenom: prenom.trim(),
+      nom_pere: nom_pere.trim(),
+      pays_residence: pays_residence.trim()
+    })
+    .eq('id', id);
+
+  if (error) {
+    alert('Erreur : ' + error.message);
+    return;
+  }
+
+  alert('Informations du membre modifiées.');
+
+  await loadAll();
+}
+
+
+/* =========================================
+   14. SUPPRIMER UN MEMBRE
+========================================= */
+
+async function deleteMember(id) {
+
+  if (!isAdmin) {
+    alert('Accès réservé aux administrateurs.');
+    return;
+  }
+
+  const member = members.find(
+    m => String(m.id) === String(id)
+  );
+
+  if (!member) return;
+
+  const confirmation = confirm(
+    'ATTENTION !\n\n' +
+    'Voulez-vous vraiment supprimer :\n' +
+    member.prenom + ' ' + member.nom + '\n\n' +
+    'Identifiant : ' + memberCode(member) + '\n\n' +
+    'Toutes ses cotisations seront également supprimées.\n' +
+    'Cette opération est irréversible.'
+  );
+
+  if (!confirmation) return;
+
+  try {
+
+    // Supprimer les cotisations du membre
+    const { error: paymentError } = await db
+      .from('cotisations')
+      .delete()
+      .eq('membre_id', id);
+
+    if (paymentError) throw paymentError;
+
+    // Supprimer ensuite le membre
+    const { error: memberError } = await db
+      .from('membres')
+      .delete()
+      .eq('id', id);
+
+    if (memberError) throw memberError;
+
+    alert('Membre supprimé avec succès.');
+
+    await loadAll();
+
+  } catch (error) {
+
+    alert(
+      'La suppression a échoué : ' + error.message
+    );
+
+  }
+}
+
+
+/* =========================================
+   15. RECHERCHE D'UN MEMBRE
+========================================= */
+
+async function lookupMember() {
+
+  const code = $('lookupId').value
+    .trim()
+    .toUpperCase();
+
+  const result = $('lookupResult');
+
+  result.classList.remove('hidden');
+
+  if (!code) {
+    result.textContent =
+      'Veuillez saisir votre identifiant ADPL.';
+    return;
+  }
+
+  const member = members.find(m =>
+    String(memberCode(m)).toUpperCase() === code
+  );
+
+  if (!member) {
+    result.textContent =
+      'Aucun membre trouvé avec cet identifiant.';
+    return;
+  }
+
+  const total = payments
+    .filter(p =>
+      String(p.membre_id) === String(member.id) &&
+      p.statut === 'valide'
+    )
+    .reduce(
+      (sum, p) => sum + Number(p.montant || 0),
+      0
+    );
+
+  const details = MONTHS.map((month, index) => {
+
+    const payment = payments.find(p =>
+      String(p.membre_id) === String(member.id) &&
+      Number(p.mois) === index + 1 &&
+      p.statut === 'valide'
+    );
+
+    return `${month} : ${
+      payment ? money(payment.montant) : 'Non payé'
+    }`;
+
+  }).join('\n');
+
+  result.textContent =
+    `IDENTIFIANT : ${memberCode(member)}\n` +
+    `NOM : ${member.nom}\n` +
+    `PRÉNOM : ${member.prenom}\n` +
+    `PÈRE : ${member.nom_pere || 'Non renseigné'}\n` +
+    `PAYS : ${member.pays_residence || 'Non renseigné'}\n\n` +
+    `COTISATIONS ${$('year').value}\n` +
+    details +
+    `\n\nTOTAL : ${money(total)}`;
+}
+
+
+/* =========================================
+   16. EXPORTATION CSV
+========================================= */
+
+function exportCSV() {
+
+  const headers = [
+    'Identifiant',
+    'Nom',
+    'Prénom',
+    'Nom du père',
+    'Pays',
+    ...MONTHS,
+    'Total annuel'
+  ];
+
+  const rows = members.map(member => {
+
+    let total = 0;
+
+    const values = MONTHS.map((month, index) => {
+
+      const payment = payments.find(p =>
+        String(p.membre_id) === String(member.id) &&
+        Number(p.mois) === index + 1 &&
+        p.statut === 'valide'
+      );
+
+      const amount = payment
+        ? Number(payment.montant || 0)
+        : 0;
+
+      total += amount;
+
+      return amount;
+    });
+
+    return [
+      memberCode(member),
+      member.nom,
+      member.prenom,
+      member.nom_pere || '',
+      member.pays_residence || '',
+      ...values,
+      total
+    ];
+  });
+
+  const csv = [headers, ...rows]
+    .map(row => row.map(value =>
+      '"' + String(value ?? '').replace(/"/g, '""') + '"'
+    ).join(';'))
+    .join('\n');
+
+  const blob = new Blob(
+    ['\uFEFF' + csv],
+    { type: 'text/csv;charset=utf-8;' }
+  );
+
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `ADPL_${$('year').value}.csv`;
+
+  link.click();
+
+  URL.revokeObjectURL(url);
+}
+
+
+/* =========================================
+   17. DÉMARRAGE DE LA PLATEFORME
+========================================= */
+
+initializePlatform();
+
+</script>
+
+</body>
+</html>
