@@ -502,11 +502,16 @@ footer {
 const SUPABASE_URL =
   'https://cklrdclokpufvfvbknnc.supabase.co';
 
+/* CLÉ PUBLIABLE CORRIGÉE */
+
 const SUPABASE_KEY =
-  'sb_publishable_mvJxDazw6DIVBEqTEn9w_EXi782uR';
+  'sb_publishable_mvJxDazw6DIVBEQjTEN9w_EXi782uR';
+
+/* Vérification du chargement de Supabase */
 
 if (!window.supabase) {
   alert("Impossible de charger Supabase. Vérifiez votre connexion Internet.");
+  throw new Error("La bibliothèque Supabase n'a pas été chargée.");
 }
 
 const db = window.supabase.createClient(
@@ -683,6 +688,7 @@ function initializePlatform() {
   db.auth.getSession().then(async ({data,error}) => {
     if (error) {
       console.error(error);
+      setStatus('authStatus','Erreur de récupération de session : '+error.message);
       return;
     }
 
@@ -760,7 +766,7 @@ function updateAdminInterface() {
 }
 
 /* =========================================
-   8. CHARGEMENT DES MEMBRES
+   8. CHARGEMENT DES MEMBRES ET COTISATIONS
 ========================================= */
 
 async function loadAll() {
