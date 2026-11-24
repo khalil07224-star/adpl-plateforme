@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#124b35"><title>Connexion administrateur — ADMB</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{font-family:Arial,Helvetica,sans-serif;color:#20352a;background:#f2f6f2}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px}.panel{width:min(100%,440px);background:#fff;border-radius:18px;padding:28px;box-shadow:0 12px 40px #173c281a}.brand{display:flex;align-items:center;gap:14px;margin-bottom:22px}.brand img{width:76px;height:76px;object-fit:contain}.brand strong{display:block;font-size:23px;letter-spacing:2px;color:#145238}.brand small{display:block;line-height:1.4;color:#587164}.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:#9a7830}h1{font-size:25px;margin:8px 0 7px;color:#173e2d}p{line-height:1.55;color:#617267}label{display:block;font-weight:700;font-size:14px;margin:16px 0 7px}input{width:100%;padding:13px;border:1px solid #cad8ce;border-radius:9px;font-size:16px}button{width:100%;padding:13px;border:0;border-radius:9px;background:#176b45;color:white;font-size:16px;font-weight:700;margin-top:20px;cursor:pointer}button:disabled{opacity:.6;cursor:wait}.status{margin-top:15px;padding:11px;border-radius:8px;background:#f0f5f1;font-size:14px;min-height:20px;overflow-wrap:anywhere}.back{display:block;text-align:center;color:#176b45;margin-top:18px;text-decoration:none}.logo-foot{text-align:center;font-size:12px;color:#829087;margin-top:18px}
+</style></head><body><main class="panel"><div class="brand"><img src="ADMB_logo.png" alt="Logo ADMB"><div><strong>ADMB</strong><small>Association pour le Développement<br>de Missidé Boumah</small></div></div><div class="eyebrow">Espace sécurisé</div><h1>Connexion administrateur</h1><p>Connectez-vous avec votre compte administrateur autorisé pour accéder à la gestion de l’association.</p>
+<form id="loginForm"><label for="email">Adresse e-mail</label><input id="email" type="email" autocomplete="username" required placeholder="administrateur@exemple.com"><label for="password">Mot de passe</label><input id="password" type="password" autocomplete="current-password" required placeholder="Votre mot de passe"><button id="submit" type="submit">Se connecter</button></form><div class="status" id="status" role="status" aria-live="polite">La connexion sera vérifiée par Supabase.</div><a class="back" href="index.html">← Retour au site ADMB</a><div class="logo-foot">ADMB · Plateforme officielle</div></main>
+<script>
+const SUPABASE_URL='https://cklrdclokpufvfvbknnc.supabase.co';
+const SUPABASE_PUBLIC_KEY='sb_publishable_mvJxDazw6zDIVBEQjTEN9w_EXi782uR';
+const statusBox=document.getElementById('status'),button=document.getElementById('submit');
+const say=t=>statusBox.textContent=t;
+let db;
+try{db=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLIC_KEY);}
+catch(e){say('Impossible de préparer la connexion Supabase : '+e.message);button.disabled=true;}
+document.getElementById('loginForm').addEventListener('submit',async e=>{
+ e.preventDefault();if(!db)return;button.disabled=true;button.textContent='Vérification…';say('Vérification de vos identifiants…');
+ try{
+  const {data,error}=await db.auth.signInWithPassword({email:document.getElementById('email').value.trim(),password:document.getElementById('password').value});
+  if(error)throw error;
+  const {data:allowed,error:roleError}=await db.rpc('is_adpl_admin');
+  if(roleError)throw new Error('Impossible de vérifier les droits administrateur : '+roleError.message);
+  if(allowed!==true){await db.auth.signOut();throw new Error('Ce compte est connecté, mais ne possède pas les droits administrateur ADMB.');}
+  say('Accès confirmé. Ouverture du tableau de bord…');window.location.replace('index.html#adminPanel');
+ }catch(err){say(err.message||'Échec de connexion.');button.disabled=false;button.textContent='Se connecter';}
+});
+</script></body></html>
